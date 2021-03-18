@@ -320,6 +320,35 @@ bot.start(async (ctx) => {
 	ctx.replyWithMarkdown(getGreetMessage(ctx.update.message.chat.id < 0))
 })
 
+bot.command("game", (ctx) => {
+	let message = ctx.update.message
+	if (message.chat.id < 0) {
+		let chatId = message.chat.id
+		let chat = getChat(chatId)
+		if (chat) {
+			if (chat.isPlaying) {
+				return ctx.reply("❌ Oyun davam edir dayandırmaq üçün /stop.")
+			}
+			else {
+				chat.isPlaying = true
+				for (let key in chat.members) {
+					let member = chat.members[key]
+					member.gameScore = 0
+				}
+				db.update(chatId, ch => chat)
+			}
+		}
+		else {
+			createChat(chatId)
+		}
+		ctx.replyWithMarkdown("*deneme kateqoriyasında oyun başladı*")
+		startGame1(ctx, chatId)
+	}
+	else {
+		ctx.reply("❌ Bu əmr qruplar üçün nəzərdə tutulub.")
+	}
+})
+
 bot.command("deneme1", (ctx) => {
 	let message = ctx.update.message
 	if (message.chat.id < 0) {
