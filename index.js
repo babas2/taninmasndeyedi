@@ -320,7 +320,7 @@ bot.start(async (ctx) => {
 	ctx.replyWithMarkdown(getGreetMessage(ctx.update.message.chat.id < 0))
 })
 
-bot.command("deneme", (ctx) => {
+bot.command("deneme1", (ctx) => {
 	let message = ctx.update.message
 	if (message.chat.id < 0) {
 		let chatId = message.chat.id
@@ -341,7 +341,7 @@ bot.command("deneme", (ctx) => {
 		else {
 			createChat(chatId)
 		}
-		ctx.replyWithMarkdown("*Yaş Təxmin oyunu başladı!*")
+		ctx.replyWithMarkdown("*deneme kateqoriyasında oyun başladı*")
 		startGame1(ctx, chatId)
 	}
 	else {
