@@ -26,7 +26,7 @@ const getGreetMessage = isGroup => trueTrim(`
 	🎉 /game - Oyunu başlat
 	❌ /stop - Oyunu dayandır
 	📊 /top - Oyunçuların reytinqi
-	📥 /feedback - Bizimlə əlaqə
+	📥 /feedback - Bizimlə əlaqə...
 
 
 
