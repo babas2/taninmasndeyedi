@@ -31,6 +31,17 @@ const getGreetMessage = isGroup => trueTrim(`
 
 
 `)
+
+const getRandomPerson2 = () => {
+	let imagePath = "./riyaz"
+	let fimeName = arrayRandom(fs.readdirSync(imagePath))
+	let age = Number(fimeName.match(/^(\d+)/)[1])
+	return {
+		age: age,
+		photo: `${imagePath}/${fimeName}`
+	}
+}
+
 const getRandomPerson1 = () => {
 	let imagePath = "./deneme"
 	let fimeName = arrayRandom(fs.readdirSync(imagePath))
@@ -312,6 +323,93 @@ const startGame1 = (ctx, chatId) => {
 	}, 1000)
 }
 
+const startGameR = (ctx, chatId) => {
+	let gameState = createGameState(chatId)
+	let startRound = async round => {
+		let person = getRandomPerson1()
+		let rightAnswer = person.age
+		let guessMessage = await ctx.replyWithPhoto({
+			source: person.photo,
+		}, {
+			caption: getRoundMessage(chatId, round, 0),
+			parse_mode: "Markdown"
+		})
+		gameState.currentTime = 0
+		gameState.guessMessageId = guessMessage.message_id
+		gameState.currentRound = round
+
+		let time = 1
+		gameState.timeouts.timer = setInterval(() => {
+			gameState.currentTime = time
+			telegram.editMessageCaption(
+				ctx.chat.id,
+				guessMessage.message_id,
+				null,
+				getRoundMessage(chatId, round, time),
+				{
+					parse_mode: "Markdown"
+				}
+			)
+			time++
+			if (time >= (config.timerSteps + 1)) clearInterval(gameState.timeouts.timer)
+		}, config.waitDelay / (config.timerSteps + 1))
+		
+		gameState.timeouts.round = setTimeout(() => {
+			let chat = getChat(chatId)
+			let top = []
+			iterateObject(chat.members, (memberId, member, memberIndex) => {
+				if (member.isPlaying) {
+					let addScore = member.answer === null ? 0 : rightAnswer - Math.abs(rightAnswer - member.answer)
+					chat.members[memberId].gameScore += addScore
+					chat.members[memberId].totalScore += addScore
+					top.push({
+						firstName: member.firstName,
+						addScore: addScore,
+						answer: member.answer
+					})
+					member.answer = null
+					db.update(chatId, ch => chat)
+				}
+			})
+			db.update(chatId, ch => chat)
+			
+			if (!top.every(member => member.answer === null)) {
+				ctx.replyWithMarkdown(
+					trueTrim(`
+						✅ Gördüyünüz insanın yaşı *${rightAnswer} ${pluralize(rightAnswer, "yaş", "yaş", "yaş")}*. 🗣️ Ən yaxın təxminlər:
+
+						${top.sort((a, b) => b.addScore - a.addScore).map((member, index) => `${["🏆","🎖","🏅"][index] || "🔸"} ${index + 1}. *${member.firstName}*: ${plusminus(member.addScore)}`).join("\n")}
+					`),
+					{
+						reply_to_message_id: guessMessage.message_id,
+					}
+				)
+			}
+			else {
+				ctx.reply("🤔 Deyəsən oynayan yoxdu? Yaxşı mən oyunu dayandırdım...")
+				stopGame(ctx, chatId)
+				return
+			}
+
+			if (round === config.rounds - 1) {
+				gameState.timeouts.stopGame = setTimeout(() => {
+					stopGame(ctx, chatId)
+				}, 1000)
+			}
+			else {
+				gameState.answersOrder = []
+				gameState.timeouts.afterRound = setTimeout(() => {
+					startRound(++round)
+				}, 2500)
+			}
+		}, config.waitDelay)
+	}
+	gameState.timeouts.beforeGame = setTimeout(() => {
+		startRound(0)
+	}, 1000)
+}
+
+
 bot.catch((err, ctx) => {
 	console.log("\x1b[41m%s\x1b[0m", `Ooops, encountered an error for ${ctx.updateType}`, err)
 })
@@ -341,13 +439,43 @@ bot.command("game", (ctx) => {
 		else {
 			createChat(chatId)
 		}
-		ctx.replyWithMarkdown("*deneme kateqoriyasında oyun başladı*")
-		startGame1(ctx, chatId)
+		ctx.replyWithMarkdown("*Yaş Təxmin Oyunu Başladı!*")
+		startGame(ctx, chatId)
 	}
 	else {
 		ctx.reply("❌ Bu əmr qruplar üçün nəzərdə tutulub.")
 	}
 })
+
+bot.command("riyaziyyat", (ctx) => {
+	let message = ctx.update.message
+	if (message.chat.id < 0) {
+		let chatId = message.chat.id
+		let chat = getChat(chatId)
+		if (chat) {
+			if (chat.isPlaying) {
+				return ctx.reply("❌ Oyun davam edir dayandırmaq üçün /stop.")
+			}
+			else {
+				chat.isPlaying = true
+				for (let key in chat.members) {
+					let member = chat.members[key]
+					member.gameScore = 0
+				}
+				db.update(chatId, ch => chat)
+			}
+		}
+		else {
+			createChat(chatId)
+		}
+		ctx.replyWithMarkdown("*Riyaziyyat Kateqoriyasında Oyun Başladı!*")
+		startGameR(ctx, chatId)
+	}
+	else {
+		ctx.reply("❌ Bu əmr qruplar üçün nəzərdə tutulub.")
+	}
+})
+
 
 bot.command("deneme1", (ctx) => {
 	let message = ctx.update.message
@@ -370,7 +498,7 @@ bot.command("deneme1", (ctx) => {
 		else {
 			createChat(chatId)
 		}
-		ctx.replyWithMarkdown("*deneme kateqoriyasında oyun başladı*")
+		ctx.replyWithMarkdown("*Yoxlama Kateqoriyasında Oyun Başladı!*")
 		startGame1(ctx, chatId)
 	}
 	else {
